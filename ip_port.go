@@ -4,7 +4,7 @@ import (
 	"net"
 )
 
-// GenerateIPsFromCIDR 从给定的CIDR生成所有可能的IPv4地址
+// GenerateIPsFromCIDR 从给定的 CIDR 生成所有可能的IPv4地址
 func GenerateIPsFromCIDR(cidr string) ([]string, error) {
 	_, ipNet, err := net.ParseCIDR(cidr)
 	if err != nil {

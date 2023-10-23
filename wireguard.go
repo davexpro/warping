@@ -5,52 +5,41 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/hex"
-	"fmt"
-	"log"
 	"net/netip"
 
 	"github.com/pkg/errors"
 	"golang.zx2c4.com/wireguard/conn"
 	"golang.zx2c4.com/wireguard/device"
 	"golang.zx2c4.com/wireguard/tun/netstack"
-	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
-func genKey() {
-	key, err := wgtypes.GeneratePrivateKey()
-	if err != nil {
-		fmt.Println(err)
-	}
-	fmt.Println(key.String())
-}
-
-func buildHandshakePacket(pri device.NoisePrivateKey, pub device.NoisePublicKey) []byte {
+func buildHandshakePacket(pri device.NoisePrivateKey, pub device.NoisePublicKey) ([]byte, error) {
 	d, _, err := netstack.CreateNetTUN([]netip.Addr{}, []netip.Addr{}, 1480)
 	if err != nil {
-		log.Fatalln("构建握手包失败: " + err.Error())
+		return nil, err
 	}
-	dev := device.NewDevice(d, conn.NewDefaultBind(), device.NewLogger(0, ""))
 
+	dev := device.NewDevice(d, conn.NewDefaultBind(), device.NewLogger(0, ""))
 	dev.SetPrivateKey(pri)
 
 	peer, err := dev.NewPeer(pub)
 	if err != nil {
-		log.Fatalln("构建握手包失败: " + err.Error())
+		return nil, err
 	}
 	msg, err := dev.CreateMessageInitiation(peer)
 	if err != nil {
-		log.Fatalln("构建握手包失败: " + err.Error())
+		return nil, err
 	}
 
 	var buf [device.MessageInitiationSize]byte
 	writer := bytes.NewBuffer(buf[:0])
 	binary.Write(writer, binary.LittleEndian, msg)
-	packet := writer.Bytes()
+	pkt := writer.Bytes()
 
-	generator := device.CookieGenerator{}
-	generator.Init(pub)
-	generator.AddMacs(packet)
-	return packet
+	gen := device.CookieGenerator{}
+	gen.Init(pub)
+	gen.AddMacs(pkt)
+	return pkt, nil
 }
 
 func getNoisePrivateKeyFromBase64(b string) (device.NoisePrivateKey, error) {
